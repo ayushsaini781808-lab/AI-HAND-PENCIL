@@ -1,7 +1,7 @@
 ./fake_opencv
-opencv-python-headless
-numpy
+opencv-python-headless>=4.8.0
+numpy<2.0.0
 streamlit
 streamlit-webrtc
 av
-mediapipe
+mediapipe==0.10.14
