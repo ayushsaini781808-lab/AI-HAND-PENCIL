@@ -10,15 +10,32 @@ from painter import Painter
 from utils import CoordinateSmoother
 from ui import draw_toolbar, select_color, draw_mode, draw_cursor, draw_eraser_cursor, draw_coordinates
 
-st.set_page_config(page_title="AI Hand Pencil", page_icon="✏️")
-st.title("🖐️ AI Hand Pencil")
-st.markdown("Control the pencil with your hand gestures. **DRAW** (1 finger), **ERASE** (whole hand). Draw with your index finger.")
-
-RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+st.set_page_config(
+    page_title="AI Hand Pencil",
+    page_icon="✏️",
+    layout="wide"
 )
 
-class AI_Pencil_Processor(VideoProcessorBase):
+st.title("🖐️ AI Hand Pencil")
+st.markdown(
+    "Draw in the air using your hand gestures! "
+    "☝️ **1 finger** = Draw  |  ✌️ **2 fingers** = Select Color  |  🖐️ **Open hand** = Erase  |  ✊ **Fist** = Idle"
+)
+
+# Multiple STUN servers for reliable WebRTC connectivity on the cloud
+RTC_CONFIGURATION = RTCConfiguration(
+    {
+        "iceServers": [
+            {"urls": ["stun:stun.l.google.com:19302"]},
+            {"urls": ["stun:stun1.l.google.com:19302"]},
+            {"urls": ["stun:stun2.l.google.com:19302"]},
+            {"urls": ["stun:stun3.l.google.com:19302"]},
+        ]
+    }
+)
+
+
+class AIPencilProcessor(VideoProcessorBase):
     def __init__(self):
         self.hand_tracker = HandTracker()
         self.gesture_stabilizer = GestureStabilizer()
@@ -28,7 +45,7 @@ class AI_Pencil_Processor(VideoProcessorBase):
 
     def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
         img = frame.to_ndarray(format="bgr24")
-        
+
         # Mirror webcam
         img = cv2.flip(img, 1)
 
@@ -54,17 +71,17 @@ class AI_Pencil_Processor(VideoProcessorBase):
                     self.painter.draw(current_point, self.current_color)
                 else:
                     self.painter.reset_previous()
-                    
+
             elif stable_gesture == "SELECT":
                 self.painter.reset_previous()
                 self.current_color = select_color(current_point, self.current_color)
-                
+
             elif stable_gesture == "ERASE":
                 self.painter.reset_previous()
                 draw_eraser_cursor(img, current_point)
                 if y > TOOLBAR_HEIGHT:
                     self.painter.erase(current_point)
-                    
+
             else:
                 self.painter.reset_previous()
         else:
@@ -81,12 +98,24 @@ ctx = webrtc_streamer(
     key="ai-pencil",
     mode=WebRtcMode.SENDRECV,
     rtc_configuration=RTC_CONFIGURATION,
-    video_processor_factory=AI_Pencil_Processor,
+    video_processor_factory=AIPencilProcessor,
     media_stream_constraints={"video": True, "audio": False},
     async_processing=True,
 )
 
-if st.button("Clear Canvas"):
+st.markdown("---")
+if st.button("🗑️ Clear Canvas"):
     if ctx.video_processor:
         ctx.video_processor.painter.clear()
+        st.success("Canvas cleared!")
 
+st.markdown("### 📖 How to use")
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.info("☝️ **1 Finger**\nDraw mode")
+with col2:
+    st.info("✌️ **2 Fingers**\nSelect Color")
+with col3:
+    st.warning("🖐️ **Open Hand**\nErase mode")
+with col4:
+    st.error("✊ **Fist**\nIdle / Rest")
