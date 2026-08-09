@@ -22,13 +22,21 @@ st.markdown(
     "☝️ **1 finger** = Draw  |  ✌️ **2 fingers** = Select Color  |  🖐️ **Open hand** = Erase  |  ✊ **Fist** = Idle"
 )
 
+# Added Free TURN servers from Metered (openrelayproject) for restrictive networks
 RTC_CONFIGURATION = RTCConfiguration(
     {
         "iceServers": [
             {"urls": ["stun:stun.l.google.com:19302"]},
             {"urls": ["stun:stun1.l.google.com:19302"]},
-            {"urls": ["stun:stun2.l.google.com:19302"]},
-            {"urls": ["stun:stun3.l.google.com:19302"]},
+            {
+                "urls": [
+                    "turn:openrelay.metered.ca:80",
+                    "turn:openrelay.metered.ca:443",
+                    "turn:openrelay.metered.ca:443?transport=tcp",
+                ],
+                "username": "openrelayproject",
+                "credential": "openrelayproject",
+            },
         ]
     }
 )
@@ -97,7 +105,13 @@ ctx = webrtc_streamer(
     mode=WebRtcMode.SENDRECV,
     rtc_configuration=RTC_CONFIGURATION,
     video_processor_factory=AIPencilProcessor,
-    media_stream_constraints={"video": True, "audio": False},
+    media_stream_constraints={
+        "video": {
+            "width": {"ideal": 640},
+            "height": {"ideal": 480}
+        },
+        "audio": False
+    },
     async_processing=True,
 )
 
