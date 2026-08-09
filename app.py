@@ -1,93 +1,272 @@
-import cv2
-import numpy as np
-import gradio as gr
-from config import CURRENT_COLOR, TOOLBAR_HEIGHT
-from hand_tracker import HandTracker
-from gesture import get_finger_states, detect_gesture, GestureStabilizer
-from painter import Painter
-from utils import CoordinateSmoother
-from ui import draw_toolbar, select_color, draw_mode, draw_cursor, draw_eraser_cursor, draw_coordinates
+#the main file of project, it will run the whole program
 
-# Initialize global components (for a simple single-user HF space demo)
-# In a robust multi-user app, you'd wrap this in a state object per session.
+import cv2
+
+from config import (
+    CAMERA_INDEX,
+    CURRENT_COLOR,
+    TOOLBAR_HEIGHT
+)
+
+from hand_tracker import HandTracker
+
+from gesture import (
+    get_finger_states,
+    detect_gesture,
+    GestureStabilizer
+)
+
+from painter import Painter
+
+from utils import CoordinateSmoother
+
+from ui import (
+    draw_toolbar,
+    select_color,
+    draw_mode,
+    draw_cursor,
+    draw_eraser_cursor,
+    draw_coordinates
+)
+
+
+# Initialize Camera
+
+cap = cv2.VideoCapture(CAMERA_INDEX)
+
+
+if not cap.isOpened():
+
+    print("Error: Could not open webcam.")
+    exit()
+
+
+# Initialize Components
 hand_tracker = HandTracker()
+
 gesture_stabilizer = GestureStabilizer()
+
 smoother = CoordinateSmoother()
+
 painter = Painter()
+
+
+# Default color
 current_color = CURRENT_COLOR
 
-def process_frame(frame):
-    global current_color
-    
-    if frame is None:
-        return None
-        
-    # Flip the frame natively (just in case Gradio doesn't)
+
+# Setup Window for Fullscreen
+cv2.namedWindow("AI Air Pencil", cv2.WND_PROP_FULLSCREEN)
+cv2.setWindowProperty("AI Air Pencil", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+# Main Loop
+
+while True:
+
+    success, frame = cap.read()
+
+
+    if not success:
+
+        print("Failed to read camera.")
+        break
+
+
+    # Mirror webcam
     frame = cv2.flip(frame, 1)
 
+
+    # Create Canvas
+
     painter.create_canvas(frame)
+
+
+    # Detect Hand
+
     landmarks, hand_type = hand_tracker.detect(frame)
-    draw_toolbar(frame, current_color)
+
+
+    # Draw Toolbar
+
+    draw_toolbar(
+        frame,
+        current_color
+    )
+
+
+    # Hand Detected
 
     if landmarks is not None:
-        fingers = get_finger_states(landmarks, hand_type)
-        raw_gesture = detect_gesture(fingers)
-        stable_gesture = gesture_stabilizer.update(raw_gesture)
+
+        # Finger States
+
+        fingers = get_finger_states(
+            landmarks,
+            hand_type
+        )
+
+        print("Finger State:", fingers)
+
+
+        # Raw Gesture
+        raw_gesture = detect_gesture(
+            fingers
+        )
+
+        # Stable Gesture
+        stable_gesture = (
+            gesture_stabilizer.update(
+                raw_gesture
+            )
+        )
+
+
+        # Index Fingertip
+        # Landmark 8
 
         raw_x, raw_y = landmarks[8]
-        x, y = smoother.smooth(raw_x, raw_y)
+
+
+        # Smooth Coordinates
+
+        x, y = smoother.smooth(
+            raw_x,
+            raw_y
+        )
+
+
         current_point = (x, y)
 
-        draw_mode(frame, stable_gesture)
-        draw_coordinates(frame, current_point)
+
+        # Display Mode
+        draw_mode(
+            frame,
+            stable_gesture
+        )
+
+
+        # Coordinates
+
+        draw_coordinates(
+            frame,
+            current_point
+        )
+
+
+        # DRAW MODE
 
         if stable_gesture == "DRAW":
-            draw_cursor(frame, current_point, current_color)
+
+            draw_cursor(
+                frame,
+                current_point,
+                current_color
+            )
+
+
+            # Don't draw over toolbar
             if y > TOOLBAR_HEIGHT:
-                painter.draw(current_point, current_color)
+
+                painter.draw(
+                    current_point,
+                    current_color
+                )
+
             else:
+
                 painter.reset_previous()
-                
+
+
+        # SELECT MODE
+
         elif stable_gesture == "SELECT":
+
             painter.reset_previous()
-            current_color = select_color(current_point, current_color)
-            
+
+
+            current_color = select_color(
+                current_point,
+                current_color
+            )
+
+
+        # ERASE MODE
+
         elif stable_gesture == "ERASE":
+
             painter.reset_previous()
-            draw_eraser_cursor(frame, current_point)
+
+
+            # Visible eraser
+            draw_eraser_cursor(
+                frame,
+                current_point
+            )
+
+
+            # Don't erase toolbar
             if y > TOOLBAR_HEIGHT:
-                painter.erase(current_point)
-                
+
+                painter.erase(
+                    current_point
+                )
+
+
+        # IDLE MODE
+
         else:
+
             painter.reset_previous()
+
+
+    # No Hand
     else:
+
         painter.reset_previous()
+
         smoother.reset()
 
-    # Redraw toolbar to update selected color
-    draw_toolbar(frame, current_color)
-    output = painter.combine(frame)
-    
-    return output
 
-def clear_canvas():
-    painter.clear()
-    return "Canvas Cleared!"
+    # Draw Toolbar Again
+    # This updates selected color highlight
+    draw_toolbar(
+        frame,
+        current_color
+    )
 
-# Build the Gradio App
-with gr.Blocks(title="AI Hand Pencil") as app:
-    gr.Markdown("# 🖐️ AI Hand Pencil")
-    gr.Markdown("Control the pencil with your hand gestures. **DRAW** (1 finger), **ERASE** (whole hand). Draw with your index finger.")
-    
-    with gr.Row():
-        webcam = gr.Image(sources=["webcam"], streaming=True)
-        img_out = gr.Image()
-        
-    webcam.stream(fn=process_frame, inputs=[webcam], outputs=[img_out])
-    
-    clear_btn = gr.Button("Clear Canvas")
-    clear_msg = gr.Markdown("")
-    clear_btn.click(fn=clear_canvas, outputs=[clear_msg])
 
-if __name__ == "__main__":
-    app.launch()
+    # Combine Webcam + Canvas
+    output = painter.combine(
+        frame
+    )
+
+
+    # Display
+    cv2.imshow(
+        "AI Air Pencil",
+        output
+    )
+
+
+    # Keyboard
+    key = cv2.waitKey(1) & 0xFF
+
+
+    # C -> Clear
+    if key == ord('c'):
+
+        painter.clear()
+
+
+    # Q -> Quit
+    elif key == ord('q'):
+
+        break
+
+
+# Cleanup
+cap.release()
+
+hand_tracker.close()
+
+cv2.destroyAllWindows()
