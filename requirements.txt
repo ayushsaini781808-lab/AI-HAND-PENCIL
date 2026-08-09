@@ -2,3 +2,7 @@ mediapipe
 opencv-python-headless
 numpy
 gradio
+
+streamlit
+streamlit-webrtc
+av
