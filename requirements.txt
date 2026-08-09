@@ -1,6 +1,7 @@
-mediapipe
+./fake_opencv
 opencv-python-headless
 numpy
 streamlit
 streamlit-webrtc
 av
+mediapipe

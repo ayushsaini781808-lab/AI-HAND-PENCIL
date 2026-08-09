@@ -1,21 +1,4 @@
-import os
-import subprocess
-import sys
-
-# Hack for Streamlit Cloud to remove the non-headless OpenCV installed by mediapipe
-# which causes libGL.so.1 and libgthread-2.0.so.0 errors
-try:
-    import cv2
-except ImportError as e:
-    if "libgthread" in str(e) or "libGL" in str(e) or "libSM" in str(e):
-        print("Detected headless environment missing UI libraries. Fixing OpenCV dependencies...", flush=True)
-        subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "opencv-contrib-python", "opencv-python"])
-        subprocess.run([sys.executable, "-m", "pip", "install", "opencv-contrib-python-headless", "opencv-python-headless"])
-        print("Done. Restarting Streamlit...", flush=True)
-        os.execv(sys.executable, [sys.executable, "-m", "streamlit", "run"] + sys.argv)
-    else:
-        raise e
-
+import cv2
 import av
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration, VideoProcessorBase
