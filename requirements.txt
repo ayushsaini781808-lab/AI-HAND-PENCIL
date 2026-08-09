@@ -1,4 +1,4 @@
-mediapipe==0.10.14
+mediapipe==0.10.35
 opencv-python
 numpy
 gradio
