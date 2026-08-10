@@ -5,6 +5,7 @@ import urllib.request
 
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+import time
 
 from config import (
     MAX_HANDS,
@@ -33,11 +34,14 @@ class HandTracker:
         base_options = python.BaseOptions(model_asset_path=model_path)
         options = vision.HandLandmarkerOptions(
             base_options=base_options,
+            running_mode=vision.RunningMode.VIDEO,
             num_hands=MAX_HANDS,
             min_hand_detection_confidence=MIN_DETECTION_CONFIDENCE,
-            min_hand_presence_confidence=MIN_TRACKING_CONFIDENCE
+            min_hand_presence_confidence=MIN_TRACKING_CONFIDENCE,
+            min_tracking_confidence=MIN_TRACKING_CONFIDENCE
         )
         self.detector = vision.HandLandmarker.create_from_options(options)
+        self.last_ts = 0
 
     def detect(self, frame):
         # BGR -> RGB
@@ -47,7 +51,12 @@ class HandTracker:
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
 
         # Detect
-        results = self.detector.detect(mp_image)
+        ts = int(time.time() * 1000)
+        if ts <= self.last_ts:
+            ts = self.last_ts + 1
+        self.last_ts = ts
+        
+        results = self.detector.detect_for_video(mp_image, ts)
 
         if not results.hand_landmarks:
             return None, None
