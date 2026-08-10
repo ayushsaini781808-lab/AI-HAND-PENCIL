@@ -48,29 +48,21 @@ def get_finger_states(landmarks, hand_type):
 # Gesture Detection
 def detect_gesture(fingers):
 
-    # Index only
-    if fingers == [0, 1, 0, 0, 0]:
-
+    # Index only (ignoring thumb)
+    if fingers[1:] == [1, 0, 0, 0]:
         return "DRAW"
 
-
-    # Index + Middle
-    elif fingers == [0, 1, 1, 0, 0]:
-
+    # Index + Middle (ignoring thumb)
+    elif fingers[1:] == [1, 1, 0, 0]:
         return "SELECT"
 
-
-    # Open palm
-    elif fingers == [1, 1, 1, 1, 1]:
-
+    # Open palm (4 fingers up, ignoring thumb)
+    elif fingers[1:] == [1, 1, 1, 1]:
         return "ERASE"
 
-
-    # Fist
-    elif fingers == [0, 0, 0, 0, 0]:
-
+    # Fist (ignoring thumb)
+    elif fingers[1:] == [0, 0, 0, 0]:
         return "IDLE"
-
 
     return "IDLE"
 
