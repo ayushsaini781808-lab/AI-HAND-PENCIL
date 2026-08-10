@@ -57,7 +57,6 @@ class AIPencilProcessor(VideoProcessorBase):
 
         self.painter.create_canvas(img)
         landmarks, hand_type = self.hand_tracker.detect(img)
-        draw_toolbar(img, self.current_color)
 
         if landmarks is not None:
             fingers = get_finger_states(landmarks, hand_type)
@@ -107,13 +106,18 @@ ctx = webrtc_streamer(
     video_processor_factory=AIPencilProcessor,
     media_stream_constraints={
         "video": {
-            "width": {"ideal": 480},
-            "height": {"ideal": 360},
-            "frameRate": {"ideal": 30, "max": 30}
+            "width": {"ideal": 384},
+            "height": {"ideal": 288},
+            "frameRate": {"ideal": 20, "max": 24}
         },
         "audio": False
     },
-    async_processing=False,
+    # IMPORTANT: async_processing=True lets streamlit-webrtc drop stale frames
+    # instead of queueing every incoming frame. With False, if a frame takes
+    # longer to process than the camera's frame interval, frames pile up and
+    # the video keeps falling further and further behind (growing lag).
+    # True keeps you processing the *latest* frame, so the feed stays live.
+    async_processing=True,
 )
 
 st.markdown("---")
