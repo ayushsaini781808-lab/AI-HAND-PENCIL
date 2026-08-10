@@ -113,7 +113,7 @@ ctx = webrtc_streamer(
         },
         "audio": False
     },
-    async_processing=False,
+    async_processing=True,
 )
 
 st.markdown("---")

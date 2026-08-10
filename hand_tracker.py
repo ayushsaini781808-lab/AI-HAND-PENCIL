@@ -1,11 +1,7 @@
-import os
 import cv2
 import mediapipe as mp
-import urllib.request
-import time
-
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
+import mediapipe.python.solutions.hands as mp_hands
+import mediapipe.python.solutions.drawing_utils as mp_drawing
 
 from config import (
     MAX_HANDS,
@@ -13,73 +9,50 @@ from config import (
     MIN_TRACKING_CONFIDENCE
 )
 
-MODEL_PATH = 'hand_landmarker.task'
-MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
-
-# Hand skeleton connections
-HAND_CONNECTIONS = [
-    (0, 1), (1, 2), (2, 3), (3, 4),
-    (0, 5), (5, 6), (6, 7), (7, 8),
-    (5, 9), (9, 10), (10, 11), (11, 12),
-    (9, 13), (13, 14), (14, 15), (15, 16),
-    (13, 17), (17, 18), (18, 19), (19, 20),
-    (0, 17)
-]
-
-
 class HandTracker:
     def __init__(self):
-        # Download model if missing
-        if not os.path.exists(MODEL_PATH):
-            urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
-
-        base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
-        options = vision.HandLandmarkerOptions(
-            base_options=base_options,
-            running_mode=vision.RunningMode.VIDEO,
-            num_hands=MAX_HANDS,
-            min_hand_detection_confidence=MIN_DETECTION_CONFIDENCE,
-            min_hand_presence_confidence=MIN_TRACKING_CONFIDENCE,
+        # Using the Legacy API allows us to select model_complexity=0 (Lite model). 
+        # This is strictly required for Streamlit Cloud CPUs to achieve 30 FPS without lag.
+        self.detector = mp_hands.Hands(
+            static_image_mode=False,
+            max_num_hands=MAX_HANDS,
+            model_complexity=0,  # 0 = Lite (fastest), 1 = Full (heavy)
+            min_detection_confidence=MIN_DETECTION_CONFIDENCE,
             min_tracking_confidence=MIN_TRACKING_CONFIDENCE
         )
-        self.detector = vision.HandLandmarker.create_from_options(options)
-        self._last_ts_ms = 0
 
     def detect(self, frame):
-        # ── PERFORMANCE: Process at half resolution ──────────────────────
-        h, w = frame.shape[:2]
-        small = cv2.resize(frame, (w // 2, h // 2))
+        # Convert BGR to RGB
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Process the frame
+        results = self.detector.process(rgb_frame)
 
-        rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-
-        # Monotonically increasing timestamp in ms
-        ts_ms = int(time.time() * 1000)
-        if ts_ms <= self._last_ts_ms:
-            ts_ms = self._last_ts_ms + 1
-        self._last_ts_ms = ts_ms
-
-        results = self.detector.detect_for_video(mp_image, ts_ms)
-
-        if not results.hand_landmarks:
+        if not results.multi_hand_landmarks:
             return None, None
 
-        hand = results.hand_landmarks[0]
-
-        # Scale landmarks back to original frame size
+        hand = results.multi_hand_landmarks[0]
+        h, w = frame.shape[:2]
         landmarks = []
-        for lm in hand:
+
+        # Store landmarks scaled to image size
+        for lm in hand.landmark:
             x = int(lm.x * w)
             y = int(lm.y * h)
             landmarks.append((x, y))
 
-        # Draw skeleton on original frame
-        for idx1, idx2 in HAND_CONNECTIONS:
-            cv2.line(frame, landmarks[idx1], landmarks[idx2], (0, 255, 0), 2)
-        for pt in landmarks:
-            cv2.circle(frame, pt, 5, (0, 0, 255), cv2.FILLED)
+        # Draw skeleton connections naturally
+        mp_drawing.draw_landmarks(
+            frame, 
+            hand, 
+            mp_hands.HAND_CONNECTIONS,
+            mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=5),
+            mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2)
+        )
 
-        hand_type = results.handedness[0][0].category_name
+        # Handedness
+        hand_type = results.multi_handedness[0].classification[0].label
+
         return landmarks, hand_type
 
     def close(self):
