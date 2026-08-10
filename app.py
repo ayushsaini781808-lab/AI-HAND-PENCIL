@@ -107,8 +107,8 @@ ctx = webrtc_streamer(
     video_processor_factory=AIPencilProcessor,
     media_stream_constraints={
         "video": {
-            "width": {"ideal": 640},
-            "height": {"ideal": 480},
+            "width": {"ideal": 480},
+            "height": {"ideal": 360},
             "frameRate": {"ideal": 30, "max": 30}
         },
         "audio": False

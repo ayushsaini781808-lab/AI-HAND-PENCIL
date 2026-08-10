@@ -4,4 +4,4 @@ numpy
 streamlit
 streamlit-webrtc
 av
-mediapipe
+mediapipe==0.10.14
