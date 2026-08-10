@@ -1,7 +1,5 @@
 import cv2
 import mediapipe as mp
-import mediapipe.python.solutions.hands as mp_hands
-import mediapipe.python.solutions.drawing_utils as mp_drawing
 
 from config import (
     MAX_HANDS,
@@ -11,9 +9,9 @@ from config import (
 
 class HandTracker:
     def __init__(self):
-        # Using the Legacy API allows us to select model_complexity=0 (Lite model). 
-        # This is strictly required for Streamlit Cloud CPUs to achieve 30 FPS without lag.
-        self.detector = mp_hands.Hands(
+        self.mp_hands = mp.solutions.hands
+        self.mp_draw = mp.solutions.drawing_utils
+        self.detector = self.mp_hands.Hands(
             static_image_mode=False,
             max_num_hands=MAX_HANDS,
             model_complexity=0,  # 0 = Lite (fastest), 1 = Full (heavy)
@@ -41,13 +39,15 @@ class HandTracker:
             y = int(lm.y * h)
             landmarks.append((x, y))
 
-        # Draw skeleton connections naturally
-        mp_drawing.draw_landmarks(
+        mp_draw = self.mp_draw
+        mp_hands = self.mp_hands
+
+        mp_draw.draw_landmarks(
             frame, 
             hand, 
             mp_hands.HAND_CONNECTIONS,
-            mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=5),
-            mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2)
+            mp_draw.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=5),
+            mp_draw.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2)
         )
 
         # Handedness
